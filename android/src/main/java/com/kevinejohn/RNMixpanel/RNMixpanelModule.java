@@ -13,6 +13,7 @@ import com.facebook.react.bridge.ReadableType;
 import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.bridge.WritableNativeMap;
 import com.mixpanel.android.mpmetrics.InAppNotification;
+import com.mixpanel.android.mpmetrics.MiniInAppNotification;
 import com.mixpanel.android.mpmetrics.MixpanelAPI;
 
 import org.json.JSONArray;
@@ -207,10 +208,13 @@ public class RNMixpanelModule extends ReactContextBaseJavaModule implements Life
     public void getInAppNotification (Promise promise) {
         InAppNotification notification = mixpanel.getPeople().getNotificationIfAvailable();
 
-        if (notification != null) {
+        if (notification != null && notification instanceof MiniInAppNotification) {
+            MiniInAppNotification miniNotification = (MiniInAppNotification)notification;
             try {
-                String decodedContent = URLDecoder.decode(notification.getCallToActionUrl(), "UTF-8");
+                String decodedContent = URLDecoder.decode(miniNotification.getCtaUrl(), "UTF-8");
                 JSONObject content = new JSONObject(decodedContent);
+
+                mixpanel.getPeople().trackNotificationSeen(notification);
 
                 promise.resolve(convertJsonToMap(content));
             }
