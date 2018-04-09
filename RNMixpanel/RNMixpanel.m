@@ -10,6 +10,8 @@
 #import "RNMixpanel.h"
 #import "Mixpanel.h"
 
+#import <objc/runtime.h>
+
 @interface Mixpanel (ReactNative)
 - (void)applicationDidBecomeActive:(NSNotification *)notification;
 @end
@@ -21,6 +23,7 @@ Mixpanel *mixpanel = nil;
 // Called by AppDelegate.m
 + (void)sharedInstanceWithToken:(NSString *)apiToken launchOptions:(NSDictionary *)launchOptions {
     mixpanel = [Mixpanel sharedInstanceWithToken:apiToken launchOptions:launchOptions];
+    mixpanel.showNotificationOnActive = NO;
 }
 
 // Expose this module to the React Native bridge
@@ -126,6 +129,45 @@ RCT_EXPORT_METHOD(trackCharge:(nonnull NSNumber *)charge) {
 // track with properties
 RCT_EXPORT_METHOD(trackChargeWithProperties:(nonnull NSNumber *)charge properties:(NSDictionary *)properties) {
     [mixpanel.people trackCharge:charge withProperties:properties];
+}
+
+RCT_EXPORT_METHOD(getInAppNotification:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject) {
+    [mixpanel checkForDecideResponseWithCompletion: ^(NSArray *notifications, NSSet *variants, NSSet *eventBindings) {
+        if ([notifications count] > 0) {
+            NSMutableDictionary *dict = [NSMutableDictionary dictionary];
+            
+            unsigned count;
+            objc_property_t *properties = class_copyPropertyList([notifications[0] class], &count);
+            
+            for (int i = 0; i < count; i++) {
+                NSString *key = [NSString stringWithUTF8String:property_getName(properties[i])];
+                [dict setObject:[notifications[0] valueForKey:key] forKey:key];
+            }
+            
+            free(properties);
+            
+            NSDictionary *notification = [NSDictionary dictionaryWithDictionary:dict];
+            
+            if ([notification objectForKey:@"ctaUrl"]) {
+                NSURL *jsonData = [notification objectForKey:@"ctaUrl"];
+                NSString *plainJsonData = [[[jsonData absoluteString]
+                                   stringByReplacingOccurrencesOfString:@"+" withString:@" "]
+                                  stringByReplacingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
+                
+                NSError *jsonError;
+                NSData *objectData = [plainJsonData dataUsingEncoding:NSUTF8StringEncoding];
+                NSDictionary *json = [NSJSONSerialization JSONObjectWithData:objectData options:NSJSONReadingMutableContainers error:&jsonError];
+                
+                [mixpanel markNotificationShown: notifications[0]];
+                
+                resolve(json);
+            }
+        }
+        else {
+            resolve(NULL);
+        }
+    }];
 }
 
 // increment
