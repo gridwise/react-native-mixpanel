@@ -3,6 +3,7 @@
 #import <UIKit/UIKit.h>
 
 @class    MixpanelPeople;
+@class    MPNotification;
 @protocol MixpanelDelegate;
 
 /*!
@@ -662,6 +663,9 @@
  */
 - (void)showNotificationWithID:(NSUInteger)ID;
 
+
+- (void)checkForDecideResponseWithCompletion:(void (^)(NSArray *notifications, NSSet *variants, NSSet *eventBindings))completion;
+- (void)markNotificationShown:(MPNotification *)notification;
 
 /*!
  @method
